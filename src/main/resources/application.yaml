@@ -1,11 +1,48 @@
+spring:
+  ibm:
+    mq:
+      queue-manager: YOUR_QUEUE_MANAGER
+      channel: YOUR_CHANNEL
+      username: YOUR_USERNAME
+      password: YOUR_PASSWORD
+
 queue:
   configurations:
     - queueName: queue1
       portNumber: 1234
-      additionalDetails: additional details for queue1
+      queueManager: qm1
+      channel: channel1
+      username: user1
+      password: pass1
+      receive-timeout: 5000
+      receive-concurrency: 5
+      ssl:
+        enabled: true
+        keystore: path/to/keystore1
+        keystore-password: pass1
+        cipher-suite: cipher1
+        peer-name: peer1
     - queueName: queue2
       portNumber: 5678
-      additionalDetails: additional details for queue2
+      queueManager: qm2
+      channel: channel2
+      username: user2
+      password: pass2
+      receive-timeout: 3000
+      receive-concurrency: 3
+      ssl:
+        enabled: false
     - queueName: queue3
       portNumber: 9012
-      additionalDetails: additional details for queue3
+      queueManager: qm3
+      channel: channel3
+      username: user3
+      password: pass3
+      receive-timeout: 10000
+      receive-concurrency: 10
+      ssl:
+        enabled: true
+        keystore: path/to/keystore3
+        keystore-password: pass3
+        cipher-suite: cipher3
+        peer-name: peer3
