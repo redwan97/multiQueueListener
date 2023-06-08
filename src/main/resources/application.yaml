@@ -1,0 +1,11 @@
+queue:
+  configurations:
+    - queueName: queue1
+      portNumber: 1234
+      additionalDetails: additional details for queue1
+    - queueName: queue2
+      portNumber: 5678
+      additionalDetails: additional details for queue2
+    - queueName: queue3
+      portNumber: 9012
+      additionalDetails: additional details for queue3
