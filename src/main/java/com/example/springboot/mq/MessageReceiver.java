@@ -12,6 +12,11 @@ import org.springframework.jms.config.SimpleJmsListenerContainerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
+import javax.jms.Queue;
+import com.ibm.mq.jms.MQQueue;
+import com.ibm.mq.jms.MQConnectionFactory;
+
 import java.util.List;
 
 @Component
@@ -19,11 +24,11 @@ import java.util.List;
 public class MessageReceiver implements ApplicationRunner {
 
     private final JmsListenerEndpointRegistry registry;
-    private final ConnectionFactory connectionFactory;
+    private final MQConnectionFactory connectionFactory;
     private final List<QueueConfiguration> queueConfigurations;
 
     @Autowired
-    public MessageReceiver(JmsListenerEndpointRegistry registry, ConnectionFactory connectionFactory,
+    public MessageReceiver(JmsListenerEndpointRegistry registry, MQConnectionFactory connectionFactory,
                            List<QueueConfiguration> queueConfigurations) {
         this.registry = registry;
         this.connectionFactory = connectionFactory;
@@ -39,21 +44,55 @@ public class MessageReceiver implements ApplicationRunner {
             for (QueueConfiguration queueConfig : queueConfigurations) {
                 System.out.println(" - Queue Name: " + queueConfig.getQueueName());
                 System.out.println("   Port Number: " + queueConfig.getPortNumber());
+                System.out.println("   Queue Manager: " + queueConfig.getQueueManager());
+                System.out.println("   Channel: " + queueConfig.getChannel());
+                System.out.println("   Username: " + queueConfig.getUsername());
+                System.out.println("   Password: " + queueConfig.getPassword());
+                System.out.println("   Receive Timeout: " + queueConfig.getReceiveTimeout());
+                System.out.println("   Receive Concurrency: " + queueConfig.getReceiveConcurrency());
+                System.out.println("   SSL Enabled: " + queueConfig.isSslEnabled());
                 System.out.println("   Additional Details: " + queueConfig.getAdditionalDetails());
 
-                // Create a JmsListenerEndpoint for each queue and register it
-                SimpleJmsListenerEndpoint endpoint = new SimpleJmsListenerEndpoint();
-                endpoint.setId(new SimpleJmsListenerEndpointId(queueConfig.getQueueName()));
-                endpoint.setDestination(queueConfig.getQueueName());
-                endpoint.setMessageListener(message -> {
-                    // Handle the received message asynchronously
-                    System.out.println("Received message from " + queueConfig.getQueueName() + ": " + message);
-                });
+                try {
+                    // Create a JMS Queue object using the queue name
+                    Queue queue = new MQQueue(queueConfig.getQueueName());
 
-                SimpleJmsListenerContainerFactory factory = new SimpleJmsListenerContainerFactory();
-                factory.setConnectionFactory(connectionFactory);
+                    // Configure the properties for the queue
+                    connectionFactory.setTransportType(1); // 1 for Client mode
+                    connectionFactory.setQueueManager(queueConfig.getQueueManager());
+                    connectionFactory.setChannel(queueConfig.getChannel());
+                    connectionFactory.setBooleanProperty(WMQConstants.USER_AUTHENTICATION_MQCSP, true);
+                    connectionFactory.setStringProperty(WMQConstants.USERID, queueConfig.getUsername());
+                    connectionFactory.setStringProperty(WMQConstants.PASSWORD, queueConfig.getPassword());
+                    connectionFactory.setIntProperty(WMQConstants.WMQ_CONNECTION_MODE, WMQConstants.WMQ_CM_CLIENT);
+                    connectionFactory.setBooleanProperty(WMQConstants.WMQ_SSL_CIPHER_SUITE_RESET, true);
 
-                registry.registerListenerContainer(endpoint, factory);
+                    if (queueConfig.isSslEnabled()) {
+                        // Set SSL properties if enabled
+                        connectionFactory.setBooleanProperty(WMQConstants.WMQ_SSL_ENABLED, true);
+                        connectionFactory.setStringProperty(WMQConstants.WMQ_SSL_CIPHER_SUITE, queueConfig.getCipherSuite());
+                        connectionFactory.setStringProperty(WMQConstants.WMQ_SSL_PEER_NAME, queueConfig.getPeerName());
+                        connectionFactory.setStringProperty(WMQConstants.WMQ_SSL_KEYSTORE, queueConfig.getKeystore());
+                        connectionFactory.setStringProperty(WMQConstants.WMQ_SSL_KEYSTORE_PASSWORD, queueConfig.getKeystorePassword());
+                    }
+
+                    // Create a JmsListenerEndpoint for each queue and register it
+                    SimpleJmsListenerEndpoint endpoint = new SimpleJmsListenerEndpoint();
+                    endpoint.setId(new SimpleJmsListenerEndpointId(queueConfig.getQueueName()));
+                    endpoint.setDestination(queue);
+                    endpoint.setMessageListener(message -> {
+                        // Handle the received message asynchronously
+                        System.out.println("Received message from " + queueConfig.getQueueName() + ": " + message);
+                    });
+
+                    SimpleJmsListenerContainerFactory factory = new SimpleJmsListenerContainerFactory();
+                    factory.setConnectionFactory(connectionFactory);
+
+                    registry.registerListenerContainer(endpoint, factory);
+                } catch (JMSException e) {
+                    // Handle any exceptions
+                    e.printStackTrace();
+                }
             }
         }
     }
